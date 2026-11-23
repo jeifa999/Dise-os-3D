@@ -1,0 +1,1640 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Impresiones 3D Payán | Cotizador, Rastreo y Proyectos 3D</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & Space Grotesk -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Space Grotesk', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              dark: '#090D16',
+              card: '#111827',
+              border: '#1F2937',
+              cyan: '#06B6D4',
+              orange: '#F97316',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #090D16;
+      color: #F3F4F6;
+      background-image:
+        radial-gradient(circle at 12% 8%, rgba(6, 182, 212, 0.09), transparent 36%),
+        radial-gradient(circle at 88% 28%, rgba(249, 115, 22, 0.09), transparent 36%);
+    }
+    .grid-bg {
+      background-size: 36px 36px;
+      background-image: 
+        linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    }
+    .glass-panel {
+      background: rgba(17, 24, 39, 0.88);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(55, 65, 81, 0.72);
+    }
+    /* Estilos del comparador interactivo Antes / Después */
+    .ba-container {
+      position: relative;
+      overflow: hidden;
+      user-select: none;
+      touch-action: pan-y;
+    }
+    .ba-before-layer {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      width: 50%;
+      border-right: 2px solid #06B6D4;
+    }
+    .ba-handle {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 36px;
+      height: 36px;
+      border-radius: 9999px;
+      background: #06B6D4;
+      color: #090D16;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 18px rgba(6, 182, 212, 0.75);
+      pointer-events: none;
+      z-index: 20;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-cyan-500 selection:text-white overflow-x-hidden">
+
+  <!-- Contenedor de Notificaciones Toast -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-[70] max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+
+  <!-- Modal de Confirmación Personalizado -->
+  <div id="confirmModal" class="hidden fixed inset-0 z-[70] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-panel rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl border border-gray-700">
+      <h3 class="font-display font-bold text-lg text-white">Confirmar acción</h3>
+      <p id="confirmModalMessage" class="text-sm text-gray-300">¿Estás seguro de eliminar este elemento?</p>
+      <div class="flex justify-end gap-2.5 pt-2">
+        <button type="button" id="confirmCancelBtn" class="px-4 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-xs font-semibold text-gray-300 transition">
+          Cancelar
+        </button>
+        <button type="button" id="confirmAcceptBtn" class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-xs font-bold text-white transition">
+          Confirmar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Barra Superior de Administración Activa -->
+  <div id="adminBar" class="hidden bg-gradient-to-r from-orange-600 to-amber-600 text-white px-4 py-2.5 shadow-lg sticky top-0 z-50 border-b border-orange-400/40">
+    <div class="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm">
+      <div class="flex items-center gap-2 font-semibold">
+        <span class="w-2.5 h-2.5 rounded-full bg-white animate-pulse"></span>
+        <span>Panel Administrador</span>
+        <span id="cloudStatusBadge" class="px-2 py-0.5 rounded-full bg-black/25 text-[11px] font-medium">☁️ Sincronizando...</span>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <button type="button" onclick="openAdminDashboard('resenas')" class="px-3 py-1.5 rounded-lg bg-slate-950/90 hover:bg-slate-900 text-white font-semibold transition">
+          + Reseñas y Fotos
+        </button>
+        <button type="button" onclick="openAdminDashboard('pedidos')" class="px-3 py-1.5 rounded-lg bg-slate-950/90 hover:bg-slate-900 text-cyan-300 font-semibold transition">
+          Pedidos (#P3D)
+        </button>
+        <button type="button" onclick="exportBackupJson()" class="px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white font-medium transition">
+          Exportar JSON
+        </button>
+        <button type="button" onclick="logoutAdmin()" class="px-3 py-1.5 rounded-lg bg-red-950/70 hover:bg-red-900 text-white font-medium transition">
+          Salir
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Navegación Principal -->
+  <header class="border-b border-gray-800/80 bg-brand-dark/90 backdrop-blur-md sticky top-0 z-40" id="mainHeader">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-2">
+      <a href="#" class="flex items-center gap-2.5 shrink-0">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500 to-orange-500 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
+          </svg>
+        </div>
+        <div>
+          <span class="font-display font-bold text-base sm:text-lg tracking-tight text-white">Impresiones 3D <span class="text-cyan-400">Payán</span></span>
+        </div>
+      </a>
+
+      <nav class="hidden lg:flex items-center gap-6 text-sm font-medium text-gray-300">
+        <a href="#muestrario" class="hover:text-cyan-400 transition">Colores y Acabados</a>
+        <a href="#cotizador" class="hover:text-cyan-400 transition">Cotizador 3D</a>
+        <a href="#resenas" class="hover:text-cyan-400 transition">Antes vs. Después</a>
+      </nav>
+
+      <div class="flex items-center gap-2">
+        <!-- Botón Rastrear Pedido -->
+        <button type="button" onclick="openTrackerModal()" class="px-3 py-1.5 rounded-xl bg-gray-800/90 hover:bg-gray-800 border border-cyan-500/40 text-xs font-semibold text-cyan-300 transition flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+          </svg>
+          <span>Rastrear Pedido</span>
+        </button>
+
+        <!-- Botón Admin -->
+        <button type="button" onclick="openAdminLogin()" id="btnAdminNav" class="px-2.5 py-1.5 rounded-xl border border-gray-700 hover:border-orange-500/60 text-xs font-medium text-gray-300 hover:text-orange-400 transition flex items-center gap-1">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+          </svg>
+          <span class="hidden sm:inline">Admin</span>
+        </button>
+
+        <a href="#cotizador" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-slate-950 font-bold text-xs sm:text-sm shadow-lg shadow-cyan-500/20 transition">
+          Cotizar Ahora
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Principal -->
+  <section class="relative grid-bg pt-12 pb-16 sm:pt-18 sm:pb-22 px-4 sm:px-6 border-b border-gray-800/70">
+    <div class="max-w-5xl mx-auto text-center">
+      <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs font-semibold mb-6">
+        <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+        Taller de Impresión 3D Personalizada en Popayán y Envíos Nacionales
+      </div>
+      <h1 class="font-display text-3xl sm:text-5xl lg:text-6xl font-bold text-white tracking-tight leading-tight">
+        De una simple foto a una <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-300 to-orange-400">pieza real en 3D</span>
+      </h1>
+      <p class="mt-5 text-base sm:text-lg text-gray-300 max-w-2xl mx-auto leading-relaxed">
+        Sube la foto de referencia de lo que quieres crear, elige el color o acabado en nuestro muestrario, calcula una inversión estimada al instante y recibe tu presupuesto exacto en <strong class="text-white">2 a 6 horas hábiles</strong>.
+      </p>
+      <div class="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3.5">
+        <a href="#cotizador" class="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-slate-950 font-bold text-sm sm:text-base shadow-xl shadow-orange-500/20 transition">
+          Cotizar Mi Diseño Ahora
+        </a>
+        <button type="button" onclick="openTrackerModal()" class="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-gray-800/90 hover:bg-gray-800 border border-gray-700 text-cyan-300 font-semibold text-sm sm:text-base transition">
+          Consultar Estado de Mi Pedido (#P3D)
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Muestrario Interactivo de Filamentos y Acabados -->
+  <section id="muestrario" class="py-12 px-4 sm:px-6 max-w-6xl mx-auto w-full">
+    <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-7">
+      <div>
+        <span class="text-xs font-bold uppercase tracking-wider text-cyan-400">Stock Disponible</span>
+        <h2 class="font-display text-2xl sm:text-3xl font-bold text-white mt-1">Muestrario de Colores y Acabados</h2>
+      </div>
+      <p class="text-xs sm:text-sm text-gray-400">Toca un acabado para seleccionarlo automáticamente en el cotizador</p>
+    </div>
+
+    <div id="swatchGrid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5"></div>
+  </section>
+
+  <!-- Formulario Cotizador con Envío Simultáneo (Correo + WhatsApp) -->
+  <section id="cotizador" class="py-8 px-4 sm:px-6 max-w-5xl mx-auto w-full">
+    <div class="glass-panel rounded-3xl p-6 sm:p-10 shadow-2xl">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-gray-800">
+        <div>
+          <span class="text-xs font-bold uppercase tracking-wider text-cyan-400">Cotizador Inteligente</span>
+          <h2 class="font-display text-2xl sm:text-3xl font-bold text-white mt-1">Configura tu Proyecto 3D</h2>
+        </div>
+        <div class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-medium">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>Presupuesto exacto en <strong>2 a 6 horas hábiles</strong></span>
+        </div>
+      </div>
+
+      <form id="quoteForm" class="mt-7 space-y-6">
+        <!-- Datos del cliente -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div>
+            <label for="clientName" class="block text-sm font-medium text-gray-200 mb-1.5">Tu Nombre *</label>
+            <input type="text" id="clientName" required placeholder="Ej. Carlos Andrés Gómez"
+              class="w-full px-4 py-3 rounded-xl bg-gray-900/90 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition" />
+          </div>
+          <div>
+            <label for="clientContact" class="block text-sm font-medium text-gray-200 mb-1.5">Tu WhatsApp o Correo *</label>
+            <input type="text" id="clientContact" required placeholder="Ej. 312 456 7890"
+              class="w-full px-4 py-3 rounded-xl bg-gray-900/90 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition" />
+          </div>
+        </div>
+
+        <!-- Carga de Imagen de Referencia -->
+        <div>
+          <label class="block text-sm font-medium text-gray-200 mb-1.5">Foto de referencia del diseño o personaje *</label>
+          <div id="dropZone" class="relative border-2 border-dashed border-gray-700 hover:border-cyan-500/70 rounded-2xl p-6 text-center bg-gray-900/50 transition cursor-pointer">
+            <input type="file" id="referenceImage" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+            
+            <div id="uploadPlaceholder" class="space-y-2 pointer-events-none">
+              <div class="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 mx-auto flex items-center justify-center">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                </svg>
+              </div>
+              <p class="text-sm font-semibold text-white">Toca aquí para subir o tomar una foto de referencia</p>
+              <p class="text-xs text-gray-400">JPG, PNG o WEBP (se optimiza automáticamente)</p>
+            </div>
+
+            <div id="previewContainer" class="hidden relative z-10">
+              <img id="imagePreview" src="" alt="Vista previa" class="max-h-60 mx-auto rounded-xl border border-gray-700 shadow-lg object-contain" />
+              <div class="mt-3 flex items-center justify-center gap-3">
+                <span id="imageInfoText" class="text-xs text-cyan-300 font-medium">Imagen lista</span>
+                <button type="button" id="removeImageBtn" class="px-3 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 text-xs font-semibold transition">
+                  Cambiar imagen
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Categoría y Tamaño -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div>
+            <label for="projectCategory" class="block text-sm font-medium text-gray-200 mb-1.5">Tipo de Creación</label>
+            <select id="projectCategory" class="w-full px-4 py-3 rounded-xl bg-gray-900/90 border border-gray-700 text-white focus:outline-none focus:border-cyan-500 transition">
+              <option value="Figura / Personaje Coleccionable">Figura / Personaje Coleccionable</option>
+              <option value="Llaveros / Merchandising Personalizado">Llaveros / Merchandising Personalizado</option>
+              <option value="Placa / Letrero Decorativo">Placa / Letrero Decorativo</option>
+              <option value="Pieza Mecánica / Repuesto a Medida">Pieza Mecánica / Repuesto a Medida</option>
+              <option value="Prototipo / Proyecto Estudiantil">Prototipo / Proyecto Estudiantil</option>
+              <option value="Otro Diseño Personalizado">Otro Diseño Personalizado</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="projectSize" class="block text-sm font-medium text-gray-200 mb-1.5">Tamaño Promedio Estimado</label>
+            <select id="projectSize" class="w-full px-4 py-3 rounded-xl bg-gray-900/90 border border-gray-700 text-white focus:outline-none focus:border-cyan-500 transition">
+              <option value="Miniatura / Llavero (4 a 7 cm)" data-min="15000" data-max="28000">Miniatura / Llavero (4 a 7 cm)</option>
+              <option value="Pequeño (8 a 12 cm)" data-min="32000" data-max="55000">Pequeño (8 a 12 cm)</option>
+              <option value="Mediano (13 a 18 cm)" data-min="60000" data-max="98000" selected>Mediano (13 a 18 cm)</option>
+              <option value="Grande (19 a 25 cm)" data-min="105000" data-max="165000">Grande (19 a 25 cm)</option>
+              <option value="Extra Grande (+25 cm / Ensamblable)" data-min="175000" data-max="280000">Extra Grande (+25 cm / Ensamblable)</option>
+              <option value="Medida Exacta Personalizada" data-min="45000" data-max="120000">Especificar medida exacta en cm...</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Medida exacta opcional -->
+        <div id="customSizeWrapper" class="hidden">
+          <label for="customSizeInput" class="block text-sm font-medium text-cyan-300 mb-1.5">Indica las medidas aproximadas (Alto x Ancho x Fondo en cm)</label>
+          <input type="text" id="customSizeInput" placeholder="Ej. 16 cm de alto x 10 cm de ancho"
+            class="w-full px-4 py-3 rounded-xl bg-gray-900/90 border border-cyan-500/50 text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 transition" />
+        </div>
+
+        <!-- Acabado y Cantidad -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div>
+            <label for="projectFinish" class="block text-sm font-medium text-gray-200 mb-1.5">Color / Acabado Seleccionado</label>
+            <select id="projectFinish" class="w-full px-4 py-3 rounded-xl bg-gray-900/90 border border-gray-700 text-white focus:outline-none focus:border-cyan-500 transition">
+              <option value="Un solo color sólido - Negro Mate (PLA)" data-mult="1">Un solo color sólido - Negro Mate (PLA)</option>
+              <option value="Un solo color sólido - Blanco Puro (PLA)" data-mult="1">Un solo color sólido - Blanco Puro (PLA)</option>
+              <option value="Un solo color sólido - Naranja Intenso (PLA)" data-mult="1">Un solo color sólido - Naranja Intenso (PLA)</option>
+              <option value="Un solo color sólido - Verde Esmeralda (PLA)" data-mult="1">Un solo color sólido - Verde Esmeralda (PLA)</option>
+              <option value="Un solo color sólido - Verde Menta (PLA)" data-mult="1">Un solo color sólido - Verde Menta (PLA)</option>
+              <option value="Un solo color sólido - Verde Bosque (PLA)" data-mult="1">Un solo color sólido - Verde Bosque (PLA)</option>
+              <option value="Multicolor directo (2 a 3 tonos)" data-mult="1.35">Multicolor directo (2 a 3 tonos)</option>
+              <option value="Pintado a mano / Aerógrafo + Resina UV" data-mult="1.65">Pintado a mano / Aerógrafo + Resina UV</option>
+              <option value="Alta resistencia mecánica (PETG)" data-mult="1.2">Alta resistencia mecánica (PETG)</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="projectQuantity" class="block text-sm font-medium text-gray-200 mb-1.5">Cantidad de unidades</label>
+            <input type="number" id="projectQuantity" min="1" max="500" value="1"
+              class="w-full px-4 py-3 rounded-xl bg-gray-900/90 border border-gray-700 text-white focus:outline-none focus:border-cyan-500 transition" />
+          </div>
+        </div>
+
+        <!-- Calculadora Orientativa en Vivo (COP) -->
+        <div class="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-gray-900 via-slate-900 to-gray-900 border border-cyan-500/35 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <span class="text-[11px] font-bold uppercase tracking-wider text-cyan-400">Inversión Orientativa Estimada (COP)</span>
+            <p id="estimatedPriceRange" class="font-display text-2xl sm:text-3xl font-bold text-white mt-0.5">$60.000 – $98.000 COP</p>
+            <p class="text-xs text-gray-400 mt-1">Valor referencial según tamaño y acabado. El presupuesto exacto te llegará en <strong class="text-gray-200">2 a 6 horas hábiles</strong>.</p>
+          </div>
+          <div class="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/30 px-3 py-2 rounded-xl shrink-0">
+            Incluye revisión de malla 3D
+          </div>
+        </div>
+
+        <!-- Descripción -->
+        <div>
+          <label for="projectDescription" class="block text-sm font-medium text-gray-200 mb-1.5">Descripción breve de lo que quieres realizar *</label>
+          <textarea id="projectDescription" rows="3" required placeholder="Cuéntanos detalles importantes: colores deseados, si lleva nombre grabado, base, uso que le darás o fecha en la que lo necesitas..."
+            class="w-full px-4 py-3 rounded-xl bg-gray-900/90 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition"></textarea>
+        </div>
+
+        <!-- Botón Único de Envío Simultáneo -->
+        <div class="pt-1">
+          <button type="submit" id="submitBtn"
+            class="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-cyan-500 via-sky-500 to-orange-500 hover:opacity-95 text-slate-950 font-display font-bold text-base sm:text-lg shadow-xl shadow-cyan-500/20 transition flex items-center justify-center gap-2">
+            <span id="submitBtnText">Enviar Detalles al Correo y Abrir WhatsApp</span>
+            <svg id="submitBtnIcon" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+            </svg>
+          </button>
+          <p class="text-center text-[11px] text-gray-400 mt-2">
+            Al pulsar el botón se enviará la ficha al correo <strong>extrulab3d@gmail.com</strong>, se guardará tu código <strong>#P3D</strong> y se abrirá WhatsApp automáticamente.
+          </p>
+        </div>
+      </form>
+
+      <!-- Panel de Confirmación -->
+      <div id="resultPanel" class="hidden mt-8 pt-8 border-t border-gray-800 space-y-6">
+        <div class="p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div class="flex items-start gap-3.5">
+            <div class="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="font-display font-bold text-lg text-white">¡Solicitud Enviada!</h3>
+              <p id="emailAutoStatus" class="text-sm text-gray-300 mt-1">
+                Ficha enviada a <strong>extrulab3d@gmail.com</strong> y redirigiendo a WhatsApp...
+              </p>
+            </div>
+          </div>
+          <div class="bg-slate-950 border border-cyan-500/40 px-4 py-2.5 rounded-xl text-center shrink-0">
+            <span class="block text-[10px] uppercase tracking-wider text-gray-400">Tu Código de Seguimiento</span>
+            <span id="generatedOrderCode" class="font-display font-bold text-lg text-cyan-400">#P3D-000</span>
+          </div>
+        </div>
+
+        <!-- Resumen generado -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 bg-gray-900/80 border border-gray-800 rounded-2xl p-5">
+          <div class="flex items-center justify-center bg-black/40 rounded-xl p-3 border border-gray-800">
+            <img id="summaryImg" src="" alt="Referencia adjunta" class="max-h-44 rounded-lg object-contain" />
+          </div>
+          <div class="md:col-span-2 space-y-2 text-sm">
+            <p class="text-xs font-bold uppercase tracking-wider text-cyan-400">Resumen de tu Solicitud</p>
+            <div id="summaryDetails" class="text-gray-200 space-y-1.5 leading-relaxed"></div>
+          </div>
+        </div>
+
+        <!-- Botón de respaldo directo hacia WhatsApp -->
+        <div>
+          <a id="whatsappActionBtn" href="#" target="_blank" rel="noopener noreferrer"
+            class="w-full py-4 px-6 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-display font-bold text-base sm:text-lg flex items-center justify-center gap-3 shadow-xl shadow-emerald-600/25 transition">
+            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.274.072.376-.043c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.1.824z"/>
+            </svg>
+            <span>Abrir WhatsApp (302 632 7995) para Adjuntar Foto</span>
+          </a>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-3 text-xs text-gray-400 pt-1">
+          <span>Respaldo enviado a: <strong class="text-gray-200">extrulab3d@gmail.com</strong></span>
+          <div class="flex items-center gap-3">
+            <button type="button" id="shareEmailBtn" class="text-cyan-400 hover:underline">Compartir foto manualmente</button>
+            <span>•</span>
+            <button type="button" id="downloadPhotoBtn" class="text-orange-400 hover:underline">Descargar foto optimizada</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Sección de Trabajos Realizados: Comparador Antes vs. Después -->
+  <section id="resenas" class="py-14 px-4 sm:px-6 max-w-6xl mx-auto w-full">
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
+      <div>
+        <span class="text-xs font-bold uppercase tracking-wider text-orange-400">Fidelidad Comprobada</span>
+        <h2 class="font-display text-2xl sm:text-4xl font-bold text-white mt-1">Antes vs. Después y Reseñas Reales</h2>
+        <p class="text-sm text-gray-400 mt-2 max-w-xl">Desliza la barra sobre cada fotografía para comparar la referencia original frente a la pieza impresa en nuestro taller.</p>
+      </div>
+
+      <div class="glass-panel px-4 py-3 rounded-2xl flex items-center gap-3 self-start md:self-auto">
+        <div class="text-amber-400 text-lg tracking-tight">★★★★★</div>
+        <div class="text-xs">
+          <p class="font-bold text-white">4.9 / 5.0 Calificación</p>
+          <p class="text-gray-400">Clientes verificados</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="reviewsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-7"></div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="mt-auto border-t border-gray-800/80 bg-brand-dark py-8 px-4 sm:px-6">
+    <div class="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-400">
+      <div class="flex items-center gap-2">
+        <span class="font-display font-bold text-white text-sm">Impresiones 3D Payán</span>
+        <span>•</span>
+        <span>Popayán, Cauca</span>
+      </div>
+      <div class="flex flex-wrap items-center justify-center gap-4">
+        <span>WhatsApp: 302 632 7995</span>
+        <span>•</span>
+        <span>extrulab3d@gmail.com</span>
+        <button type="button" onclick="openAdminLogin()" title="Acceso Administrador" class="text-gray-500 hover:text-orange-400 transition">
+          🔒
+        </button>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Modal Rastreador de Pedidos (#P3D-XXX) -->
+  <div id="trackerModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-panel rounded-3xl max-w-lg w-full p-6 sm:p-7 space-y-5 shadow-2xl border border-gray-700">
+      <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+        <div>
+          <span class="text-[11px] font-bold uppercase tracking-wider text-cyan-400">Seguimiento en Vivo</span>
+          <h3 class="font-display font-bold text-xl text-white">Rastrea tu Proyecto 3D</h3>
+        </div>
+        <button type="button" onclick="closeTrackerModal()" class="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
+      </div>
+
+      <form id="trackerSearchForm" class="flex gap-2">
+        <input type="text" id="trackerCodeInput" placeholder="Ej. P3D-101" required
+          class="flex-1 px-4 py-3 rounded-xl bg-gray-900 border border-gray-700 text-white uppercase font-mono placeholder-gray-500 focus:outline-none focus:border-cyan-500" />
+        <button type="submit" class="px-5 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-sm transition">
+          Buscar
+        </button>
+      </form>
+
+      <div id="trackerResultBox" class="hidden space-y-4 pt-2">
+        <div class="p-4 rounded-2xl bg-gray-900/90 border border-gray-800">
+          <div class="flex items-center justify-between">
+            <span id="trkOrderCode" class="font-mono font-bold text-cyan-400 text-base">#P3D-101</span>
+            <span id="trkUpdatedAt" class="text-[11px] text-gray-400">Actualizado hoy</span>
+          </div>
+          <h4 id="trkProjectTitle" class="font-display font-bold text-white text-lg mt-1">Proyecto</h4>
+          <p id="trkClientName" class="text-xs text-gray-400">Cliente</p>
+        </div>
+
+        <div id="trkStepsList" class="space-y-2.5"></div>
+        <div id="trkNoteBox" class="p-3.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-xs text-cyan-200"></div>
+      </div>
+
+      <p id="trackerNotFound" class="hidden text-xs text-amber-300 bg-amber-500/10 border border-amber-500/30 p-3.5 rounded-xl">
+        No encontramos ese código. Verifica que esté escrito como <strong>P3D-101</strong> o escríbenos al WhatsApp 302 632 7995.
+      </p>
+    </div>
+  </div>
+
+  <!-- Modal Login Administrador -->
+  <div id="adminLoginModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-panel rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between">
+        <h3 class="font-display font-bold text-lg text-white">Acceso Administrador</h3>
+        <button type="button" onclick="closeAdminLogin()" class="text-gray-400 hover:text-white text-xl leading-none">&times;</button>
+      </div>
+      <p class="text-xs text-gray-400">Ingresa tu clave para gestionar reseñas (Antes/Después) y estados de pedidos en la nube.</p>
+      <form id="adminLoginForm" class="space-y-4">
+        <div>
+          <input type="password" id="adminPasswordInput" placeholder="Contraseña" required
+            class="w-full px-4 py-3 rounded-xl bg-gray-900 border border-gray-700 text-white focus:outline-none focus:border-orange-500" />
+          <p id="adminLoginError" class="hidden text-xs text-red-400 mt-1.5">Contraseña incorrecta.</p>
+        </div>
+        <button type="submit" class="w-full py-3 rounded-xl bg-orange-500 hover:bg-orange-400 text-slate-950 font-bold text-sm transition">
+          Entrar al Panel
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Panel Administrador Completo -->
+  <div id="adminDashboardModal" class="hidden fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+    <div class="glass-panel rounded-3xl max-w-3xl w-full p-6 sm:p-8 space-y-5 shadow-2xl my-8 border border-gray-700">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-800 pb-4">
+        <div class="flex items-center gap-2">
+          <button type="button" id="tabBtnResenas" onclick="switchAdminTab('resenas')" class="px-4 py-2 rounded-xl bg-orange-500 text-slate-950 font-bold text-xs transition">
+            Reseñas y Fotos (Antes/Después)
+          </button>
+          <button type="button" id="tabBtnPedidos" onclick="switchAdminTab('pedidos')" class="px-4 py-2 rounded-xl bg-gray-800 text-gray-300 font-semibold text-xs transition">
+            Pedidos en Curso (#P3D)
+          </button>
+        </div>
+        <button type="button" onclick="closeAdminDashboard()" class="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
+      </div>
+
+      <!-- PESTAÑA 1: EDITOR DE RESEÑAS ANTES / DESPUÉS -->
+      <div id="adminTabResenas" class="space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 id="reviewModalTitle" class="font-display font-bold text-lg text-white">Publicar Nueva Reseña Antes / Después</h3>
+          <button type="button" onclick="resetReviewForm()" class="text-xs text-cyan-400 hover:underline">+ Limpiar para nueva</button>
+        </div>
+
+        <form id="reviewEditorForm" class="space-y-4">
+          <input type="hidden" id="editReviewId" />
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="p-3 rounded-xl bg-gray-900/90 border border-gray-800">
+              <label class="block text-xs font-semibold text-cyan-300 mb-1.5">1. Foto ANTES (Referencia / Boceto)</label>
+              <input type="file" id="editBeforePhotoInput" accept="image/*"
+                class="w-full text-xs text-gray-300 file:mr-2 file:py-1.5 file:px-2.5 file:rounded-lg file:border-0 file:bg-cyan-500/20 file:text-cyan-300 cursor-pointer" />
+              <img id="editBeforePhotoPreview" src="" alt="Antes" class="mt-2 h-32 w-full rounded-lg object-cover bg-black/40" />
+            </div>
+
+            <div class="p-3 rounded-xl bg-gray-900/90 border border-gray-800">
+              <label class="block text-xs font-semibold text-orange-300 mb-1.5">2. Foto DESPUÉS (Pieza 3D Terminada)</label>
+              <input type="file" id="editAfterPhotoInput" accept="image/*"
+                class="w-full text-xs text-gray-300 file:mr-2 file:py-1.5 file:px-2.5 file:rounded-lg file:border-0 file:bg-orange-500/20 file:text-orange-300 cursor-pointer" />
+              <img id="editAfterPhotoPreview" src="" alt="Después" class="mt-2 h-32 w-full rounded-lg object-cover bg-black/40" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-gray-300 mb-1">Título del Proyecto *</label>
+              <input type="text" id="editProjectTitle" required placeholder="Ej. Figura Goku 18 cm"
+                class="w-full px-3 py-2.5 rounded-xl bg-gray-900 border border-gray-700 text-sm text-white" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-300 mb-1">Nombre del Cliente *</label>
+              <input type="text" id="editClientName" required placeholder="Ej. Andrés M. • Popayán"
+                class="w-full px-3 py-2.5 rounded-xl bg-gray-900 border border-gray-700 text-sm text-white" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-gray-300 mb-1">Categoría</label>
+              <select id="editCategory" class="w-full px-3 py-2.5 rounded-xl bg-gray-900 border border-gray-700 text-xs text-white">
+                <option value="Figura / Personaje Coleccionable">Figura / Personaje</option>
+                <option value="Llaveros / Merchandising Personalizado">Llaveros / Marca</option>
+                <option value="Placa / Letrero Decorativo">Placa / Letrero</option>
+                <option value="Pieza Mecánica / Repuesto a Medida">Repuesto Mecánico</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-300 mb-1">Tamaño</label>
+              <input type="text" id="editSize" required placeholder="Ej. Mediano (13 a 18 cm)"
+                class="w-full px-3 py-2.5 rounded-xl bg-gray-900 border border-gray-700 text-sm text-white" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-300 mb-1">Estrellas</label>
+              <select id="editRating" class="w-full px-3 py-2.5 rounded-xl bg-gray-900 border border-gray-700 text-sm text-white">
+                <option value="5">★★★★★ (5)</option>
+                <option value="4">★★★★☆ (4)</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-gray-300 mb-1">Acabado / Material</label>
+            <input type="text" id="editFinish" required placeholder="Ej. Pintado a mano / Aerógrafo + Resina UV"
+              class="w-full px-3 py-2.5 rounded-xl bg-gray-900 border border-gray-700 text-sm text-white" />
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-gray-300 mb-1">Comentario del Cliente *</label>
+            <textarea id="editComment" rows="2" required placeholder="Opinión real del cliente..."
+              class="w-full px-3 py-2.5 rounded-xl bg-gray-900 border border-gray-700 text-sm text-white"></textarea>
+          </div>
+
+          <div class="flex justify-end gap-2">
+            <button type="submit" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-orange-500 text-slate-950 font-bold text-xs">
+              Guardar y Publicar en la Nube
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- PESTAÑA 2: GESTOR DE PEDIDOS EN CURSO -->
+      <div id="adminTabPedidos" class="hidden space-y-5">
+        <h3 class="font-display font-bold text-lg text-white">Crear o Actualizar Estado de Pedido</h3>
+        <form id="orderEditorForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-gray-900/70 p-4 rounded-2xl border border-gray-800">
+          <div>
+            <label class="block text-xs font-medium text-gray-300 mb-1">Código de Pedido *</label>
+            <input type="text" id="ordCodeInput" required placeholder="Ej. P3D-103"
+              class="w-full px-3 py-2 rounded-xl bg-gray-950 border border-gray-700 text-sm text-cyan-300 font-mono uppercase" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-300 mb-1">Cliente *</label>
+            <input type="text" id="ordClientInput" required placeholder="Ej. Julián Ramírez"
+              class="w-full px-3 py-2 rounded-xl bg-gray-950 border border-gray-700 text-sm text-white" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-300 mb-1">Proyecto *</label>
+            <input type="text" id="ordTitleInput" required placeholder="Ej. Busto Coleccionable 18 cm"
+              class="w-full px-3 py-2 rounded-xl bg-gray-950 border border-gray-700 text-sm text-white" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-300 mb-1">Etapa Actual *</label>
+            <select id="ordStageInput" class="w-full px-3 py-2 rounded-xl bg-gray-950 border border-gray-700 text-xs text-white">
+              <option value="1">1. Diseño / Preparación 3D</option>
+              <option value="2">2. Imprimiendo en Taller</option>
+              <option value="3">3. Acabado / Pintura / Resina</option>
+              <option value="4">4. Listo para Entrega o Envío</option>
+            </select>
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-medium text-gray-300 mb-1">Nota para el cliente</label>
+            <input type="text" id="ordNoteInput" placeholder="Ej. Capa de pintura base aplicada, entrega estimada mañana 4 PM."
+              class="w-full px-3 py-2 rounded-xl bg-gray-950 border border-gray-700 text-sm text-white" />
+          </div>
+          <div class="sm:col-span-2 flex justify-end">
+            <button type="submit" class="px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs">
+              Guardar Estado en la Nube
+            </button>
+          </div>
+        </form>
+
+        <div class="space-y-2 max-h-60 overflow-y-auto pr-1" id="adminOrdersList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BLOQUE 1: Lógica Principal -->
+  <script>
+    const WHATSAPP_NUMBER = '573026327995';
+    const TARGET_EMAIL = 'extrulab3d@gmail.com';
+    const ADMIN_PASS = 'leopoldo123';
+    const LOCAL_REVIEWS_KEY = 'payan_3d_reviews_v4';
+    const LOCAL_ORDERS_KEY = 'payan_3d_orders_v4';
+
+    window.cloudAPI = {
+      connected: false,
+      saveReview: null,
+      deleteReview: null,
+      saveOrder: null,
+      deleteOrder: null
+    };
+
+    let isAdmin = false;
+    let compressedBase64 = '';
+    let compressedBlob = null;
+    let compressedFileName = 'referencia-3d.jpg';
+    let modalBeforeBase64 = '';
+    let modalAfterBase64 = '';
+
+    const filamentSwatches = [
+      { name: 'Negro Mate', finishValue: 'Un solo color sólido - Negro Mate (PLA)', color: '#18181b', border: '#3f3f46', tag: 'PLA Mate' },
+      { name: 'Blanco Puro', finishValue: 'Un solo color sólido - Blanco Puro (PLA)', color: '#f8fafc', border: '#cbd5e1', tag: 'PLA Sólido' },
+      { name: 'Naranja Intenso', finishValue: 'Un solo color sólido - Naranja Intenso (PLA)', color: '#f97316', border: '#fb923c', tag: 'PLA Vivo' },
+      { name: 'Verde Esmeralda', finishValue: 'Un solo color sólido - Verde Esmeralda (PLA)', color: '#10b981', border: '#34d399', tag: 'PLA Sólido' },
+      { name: 'Verde Menta', finishValue: 'Un solo color sólido - Verde Menta (PLA)', color: '#6ee7b7', border: '#a7f3d0', tag: 'PLA Pastel' },
+      { name: 'Verde Bosque', finishValue: 'Un solo color sólido - Verde Bosque (PLA)', color: '#14532d', border: '#166534', tag: 'PLA Oscuro' },
+      { name: 'Multicolor (2-3 tonos)', finishValue: 'Multicolor directo (2 a 3 tonos)', color: 'linear-gradient(135deg, #06b6d4, #f97316, #10b981)', border: '#06b6d4', tag: 'Sistema AMS' },
+      { name: 'Aerógrafo + Resina UV', finishValue: 'Pintado a mano / Aerógrafo + Resina UV', color: 'linear-gradient(135deg, #f59e0b, #ec4899, #8b5cf6)', border: '#f59e0b', tag: 'Colección' },
+      { name: 'PETG Alta Resistencia', finishValue: 'Alta resistencia mecánica (PETG)', color: '#334155', border: '#38bdf8', tag: 'Funcional' }
+    ];
+
+    const sampleBeforeSvg = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400"><rect width="600" height="400" fill="#1e293b"/><rect x="40" y="40" width="520" height="320" rx="20" fill="none" stroke="#94a3b8" stroke-width="3" stroke-dasharray="10 8"/><circle cx="300" cy="165" r="55" fill="none" stroke="#cbd5e1" stroke-width="4"/><path d="M235 275 C235 225, 365 225, 365 275" fill="none" stroke="#cbd5e1" stroke-width="4"/><text x="300" y="330" font-family="sans-serif" font-size="18" font-weight="bold" fill="#cbd5e1" text-anchor="middle">REFERENCIA / BOCETO DEL CLIENTE</text></svg>');
+    const sampleAfterSvg = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400"><defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#090d16"/><stop offset="100%" stop-color="#0f172a"/></linearGradient></defs><rect width="600" height="400" fill="url(#g1)"/><circle cx="300" cy="165" r="62" fill="#f97316"/><path d="M235 275 C235 220, 365 220, 365 275 Z" fill="#06b6d4"/><text x="300" y="330" font-family="sans-serif" font-size="18" font-weight="bold" fill="#38bdf8" text-anchor="middle">PIEZA REAL IMPRESA EN 3D + ACABADO</text></svg>');
+
+    window.defaultReviews = [
+      {
+        id: 'rev-1',
+        title: 'Busto Coleccionable con Acabado Aerógrafo',
+        client: 'Julián Ramírez • Popayán',
+        category: 'Figura / Personaje Coleccionable',
+        size: 'Mediano (13 a 18 cm)',
+        finish: 'Pintado a mano / Aerógrafo + Resina UV',
+        rating: 5,
+        comment: 'Les envié la imagen de referencia del personaje y superaron mis expectativas. El nivel de detalle y el acabado brillante quedaron impecables.',
+        beforeImage: sampleBeforeSvg,
+        afterImage: sampleAfterSvg
+      },
+      {
+        id: 'rev-2',
+        title: 'Lote de 50 Llaveros Corporativos Multicolor',
+        client: 'Melvy Arte • Comercio Local',
+        category: 'Llaveros / Merchandising Personalizado',
+        size: 'Miniatura / Llavero (4 a 7 cm)',
+        finish: 'Multicolor directo (2 a 3 tonos)',
+        rating: 5,
+        comment: 'Pasaron nuestro logo plano a relieve 3D en colores directos sin necesidad de pintar. Entregaron puntual y súper resistentes.',
+        beforeImage: sampleBeforeSvg,
+        afterImage: sampleAfterSvg
+      }
+    ];
+
+    window.defaultOrders = {
+      'P3D-101': {
+        code: 'P3D-101',
+        client: 'Julián Ramírez',
+        title: 'Busto Coleccionable 18 cm',
+        stage: 4,
+        note: 'Pieza terminada con sellado UV. Lista para recoger en Popayán.',
+        updatedAt: 'Hoy'
+      },
+      'P3D-102': {
+        code: 'P3D-102',
+        client: 'Camila Torres',
+        title: 'Placa Decorativa Studio 3D (22 cm)',
+        stage: 2,
+        note: 'Imprimiendo actualmente en placa texturizada (68% completado).',
+        updatedAt: 'Hoy'
+      }
+    };
+
+    window.reviewsList = [];
+    window.ordersMap = {};
+
+    function loadInitialCache() {
+      try {
+        const cr = localStorage.getItem(LOCAL_REVIEWS_KEY);
+        window.reviewsList = cr ? JSON.parse(cr) : [...window.defaultReviews];
+      } catch (e) {
+        window.reviewsList = [...window.defaultReviews];
+      }
+      try {
+        const co = localStorage.getItem(LOCAL_ORDERS_KEY);
+        window.ordersMap = co ? JSON.parse(co) : { ...window.defaultOrders };
+      } catch (e) {
+        window.ordersMap = { ...window.defaultOrders };
+      }
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      if (!container) return;
+      const toast = document.createElement('div');
+      const colorMap = {
+        success: 'border-emerald-500/60 bg-slate-900/95 text-emerald-300',
+        error: 'border-red-500/60 bg-slate-900/95 text-red-300',
+        info: 'border-cyan-500/60 bg-slate-900/95 text-cyan-200'
+      };
+      toast.className = `pointer-events-auto mb-2 px-4 py-3 rounded-xl border shadow-2xl text-xs sm:text-sm font-medium transition-all duration-300 ${colorMap[type] || colorMap.info}`;
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+      }, 3800);
+    }
+
+    function showCustomConfirm(message) {
+      return new Promise((resolve) => {
+        const modal = document.getElementById('confirmModal');
+        document.getElementById('confirmModalMessage').textContent = message;
+        modal.classList.remove('hidden');
+        const cleanup = (res) => {
+          modal.classList.add('hidden');
+          document.getElementById('confirmAcceptBtn').onclick = null;
+          document.getElementById('confirmCancelBtn').onclick = null;
+          resolve(res);
+        };
+        document.getElementById('confirmAcceptBtn').onclick = () => cleanup(true);
+        document.getElementById('confirmCancelBtn').onclick = () => cleanup(false);
+      });
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function renderSwatches() {
+      const grid = document.getElementById('swatchGrid');
+      if (!grid) return;
+      grid.innerHTML = '';
+      filamentSwatches.forEach((sw) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'glass-panel p-3 rounded-2xl text-left hover:border-cyan-400/70 transition flex items-center gap-3 group';
+        btn.innerHTML = `
+          <span class="w-9 h-9 rounded-xl shrink-0 shadow-inner border" style="background: ${sw.color}; border-color: ${sw.border};"></span>
+          <div class="min-w-0">
+            <p class="text-xs font-bold text-white truncate group-hover:text-cyan-300 transition">${sw.name}</p>
+            <span class="text-[10px] text-gray-400">${sw.tag}</span>
+          </div>
+        `;
+        btn.onclick = () => {
+          const finSel = document.getElementById('projectFinish');
+          finSel.value = sw.finishValue;
+          updateEstimatedPrice();
+          document.getElementById('cotizador').scrollIntoView({ behavior: 'smooth' });
+          showToast(`Acabado seleccionado: ${sw.name}`, 'info');
+        };
+        grid.appendChild(btn);
+      });
+    }
+
+    function updateEstimatedPrice() {
+      const sizeSel = document.getElementById('projectSize');
+      const finSel = document.getElementById('projectFinish');
+      const qtyInput = document.getElementById('projectQuantity');
+      if (!sizeSel || !finSel || !qtyInput) return;
+
+      const sizeOpt = sizeSel.options[sizeSel.selectedIndex];
+      const finOpt = finSel.options[finSel.selectedIndex];
+
+      const baseMin = parseFloat(sizeOpt.dataset.min || 50000);
+      const baseMax = parseFloat(sizeOpt.dataset.max || 90000);
+      const mult = parseFloat(finOpt.dataset.mult || 1);
+      const qty = Math.max(1, parseInt(qtyInput.value || '1', 10));
+
+      let discount = 1;
+      if (qty >= 10) discount = 0.85;
+      else if (qty >= 5) discount = 0.92;
+
+      const totalMin = Math.round((baseMin * mult * qty * discount) / 1000) * 1000;
+      const totalMax = Math.round((baseMax * mult * qty * discount) / 1000) * 1000;
+
+      document.getElementById('estimatedPriceRange').textContent =
+        `$${totalMin.toLocaleString('es-CO')} – $${totalMax.toLocaleString('es-CO')} COP`;
+    }
+
+    window.renderReviews = function() {
+      const container = document.getElementById('reviewsGrid');
+      if (!container) return;
+      container.innerHTML = '';
+
+      window.reviewsList.forEach(item => {
+        const stars = '★'.repeat(item.rating || 5) + '☆'.repeat(5 - (item.rating || 5));
+        const beforeImg = item.beforeImage || item.image || sampleBeforeSvg;
+        const afterImg = item.afterImage || item.image || sampleAfterSvg;
+
+        const card = document.createElement('article');
+        card.className = 'glass-panel rounded-2xl overflow-hidden flex flex-col justify-between border border-gray-800 hover:border-cyan-500/40 transition';
+
+        card.innerHTML = `
+          <div>
+            <div class="ba-container h-64 bg-gray-950 cursor-ew-resize" data-ba-id="${item.id}">
+              <img src="${afterImg}" alt="Después 3D" class="w-full h-full object-cover pointer-events-none" />
+              <span class="absolute bottom-3 right-3 px-2.5 py-1 rounded-lg bg-orange-500/90 text-slate-950 text-[10px] font-bold uppercase tracking-wider z-10">
+                Después (3D)
+              </span>
+
+              <div class="ba-before-layer">
+                <img src="${beforeImg}" alt="Antes Referencia" class="w-full h-full object-cover max-w-none pointer-events-none" />
+                <span class="absolute bottom-3 left-3 px-2.5 py-1 rounded-lg bg-slate-950/90 border border-cyan-500/50 text-cyan-300 text-[10px] font-bold uppercase tracking-wider">
+                  Antes (Ref)
+                </span>
+              </div>
+
+              <div class="ba-handle">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" transform="rotate(90 12 12)" />
+                </svg>
+              </div>
+
+              <span class="absolute top-3 left-3 px-2.5 py-1 rounded-lg bg-slate-950/85 border border-gray-700 text-[11px] font-semibold text-cyan-300 z-10">
+                ${escapeHtml(item.size)}
+              </span>
+
+              ${isAdmin ? `
+                <div class="absolute top-3 right-3 flex gap-1.5 z-30">
+                  <button type="button" onclick="editReviewItem('${item.id}')" class="px-2.5 py-1 rounded-lg bg-orange-500 hover:bg-orange-400 text-slate-950 font-bold text-xs shadow">
+                    Editar
+                  </button>
+                  <button type="button" onclick="deleteReviewItem('${item.id}')" class="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow">
+                    Eliminar
+                  </button>
+                </div>
+              ` : ''}
+            </div>
+
+            <div class="p-5">
+              <div class="flex items-center justify-between gap-2 mb-2">
+                <span class="text-amber-400 text-sm tracking-wide">${stars}</span>
+                <span class="text-[11px] text-gray-400">${escapeHtml(item.finish)}</span>
+              </div>
+              <h3 class="font-display font-bold text-lg text-white">${escapeHtml(item.title)}</h3>
+              <p class="text-sm text-gray-300 mt-2 leading-relaxed">"${escapeHtml(item.comment)}"</p>
+            </div>
+          </div>
+
+          <div class="px-5 py-3.5 bg-gray-900/60 border-t border-gray-800/80 flex items-center justify-between gap-2">
+            <span class="text-xs font-medium text-gray-400">— ${escapeHtml(item.client)}</span>
+            <button type="button" onclick="prefillFromReview('${escapeHtml(item.category)}', '${escapeHtml(item.size)}', '${escapeHtml(item.finish)}')"
+              class="text-xs font-semibold text-cyan-400 hover:text-cyan-300 transition">
+              Cotizar similar →
+            </button>
+          </div>
+        `;
+        container.appendChild(card);
+        initBeforeAfterSlider(card.querySelector('.ba-container'));
+      });
+    };
+
+    function initBeforeAfterSlider(el) {
+      if (!el) return;
+      const beforeLayer = el.querySelector('.ba-before-layer');
+      const handle = el.querySelector('.ba-handle');
+      const beforeImg = beforeLayer.querySelector('img');
+
+      const syncImgWidth = () => {
+        beforeImg.style.width = el.offsetWidth + 'px';
+      };
+      syncImgWidth();
+      window.addEventListener('resize', syncImgWidth);
+
+      const setPosition = (clientX) => {
+        const rect = el.getBoundingClientRect();
+        let pos = ((clientX - rect.left) / rect.width) * 100;
+        pos = Math.max(5, Math.min(95, pos));
+        beforeLayer.style.width = pos + '%';
+        handle.style.left = pos + '%';
+      };
+
+      let dragging = false;
+      el.addEventListener('mousedown', (e) => {
+        if (e.target.tagName === 'BUTTON') return;
+        dragging = true;
+        setPosition(e.clientX);
+      });
+      window.addEventListener('mousemove', (e) => {
+        if (dragging) setPosition(e.clientX);
+      });
+      window.addEventListener('mouseup', () => { dragging = false; });
+
+      el.addEventListener('touchstart', (e) => {
+        if (e.target.tagName === 'BUTTON') return;
+        setPosition(e.touches[0].clientX);
+      }, { passive: true });
+      el.addEventListener('touchmove', (e) => {
+        setPosition(e.touches[0].clientX);
+      }, { passive: true });
+    }
+
+    window.prefillFromReview = function(category, size, finish) {
+      const catSel = document.getElementById('projectCategory');
+      const sizeSel = document.getElementById('projectSize');
+      const finSel = document.getElementById('projectFinish');
+
+      for (let opt of catSel.options) if (opt.value === category) catSel.value = category;
+      for (let opt of sizeSel.options) if (opt.value === size) sizeSel.value = size;
+      for (let opt of finSel.options) if (opt.value === finish) finSel.value = finish;
+
+      updateEstimatedPrice();
+      document.getElementById('cotizador').scrollIntoView({ behavior: 'smooth' });
+      showToast('Configuración cargada. Sube tu foto de referencia.', 'info');
+    };
+
+    function compressImageFile(file, maxDim = 900, quality = 0.78) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => {
+          const img = new Image();
+          img.onload = () => {
+            let w = img.width;
+            let h = img.height;
+            if (w > maxDim || h > maxDim) {
+              if (w > h) {
+                h = Math.round((h * maxDim) / w);
+                w = maxDim;
+              } else {
+                w = Math.round((w * maxDim) / h);
+                h = maxDim;
+              }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            const dataUrl = canvas.toDataURL('image/jpeg', quality);
+            canvas.toBlob(blob => resolve({ dataUrl, blob }), 'image/jpeg', quality);
+          };
+          img.onerror = reject;
+          img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    document.getElementById('projectSize').addEventListener('change', (e) => {
+      const wrap = document.getElementById('customSizeWrapper');
+      if (e.target.value === 'Medida Exacta Personalizada') wrap.classList.remove('hidden');
+      else wrap.classList.add('hidden');
+      updateEstimatedPrice();
+    });
+    document.getElementById('projectFinish').addEventListener('change', updateEstimatedPrice);
+    document.getElementById('projectQuantity').addEventListener('input', updateEstimatedPrice);
+
+    const refInput = document.getElementById('referenceImage');
+    refInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        compressedFileName = file.name.replace(/\.[^/.]+$/, '') + '_3d.jpg';
+        const result = await compressImageFile(file, 950, 0.8);
+        compressedBase64 = result.dataUrl;
+        compressedBlob = result.blob;
+        document.getElementById('imagePreview').src = compressedBase64;
+        document.getElementById('imageInfoText').textContent = `Foto optimizada (${Math.round(compressedBlob.size / 1024)} KB)`;
+        document.getElementById('uploadPlaceholder').classList.add('hidden');
+        document.getElementById('previewContainer').classList.remove('hidden');
+      } catch (err) {
+        showToast('No se pudo procesar la imagen.', 'error');
+      }
+    });
+
+    document.getElementById('removeImageBtn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      refInput.value = '';
+      compressedBase64 = '';
+      compressedBlob = null;
+      document.getElementById('previewContainer').classList.add('hidden');
+      document.getElementById('uploadPlaceholder').classList.remove('hidden');
+    });
+
+    // ENVÍO SIMULTÁNEO: 1) Firebase + Correo FormSubmit -> Espera breve -> 2) Apertura automática de WhatsApp
+    document.getElementById('quoteForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!compressedBase64) {
+        showToast('Por favor sube una fotografía de referencia primero.', 'error');
+        document.getElementById('dropZone').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+
+      const submitBtn = document.getElementById('submitBtn');
+      const submitBtnText = document.getElementById('submitBtnText');
+      submitBtn.disabled = true;
+      submitBtn.classList.add('opacity-75');
+      submitBtnText.textContent = '1/2 Enviando datos al correo...';
+
+      const name = document.getElementById('clientName').value.trim();
+      const contact = document.getElementById('clientContact').value.trim();
+      const category = document.getElementById('projectCategory').value;
+      const sizeSel = document.getElementById('projectSize').value;
+      const customSize = document.getElementById('customSizeInput').value.trim();
+      const finalSize = (sizeSel === 'Medida Exacta Personalizada' && customSize) ? `Exacta: ${customSize}` : sizeSel;
+      const finish = document.getElementById('projectFinish').value;
+      const quantity = document.getElementById('projectQuantity').value;
+      const description = document.getElementById('projectDescription').value.trim();
+      const estRange = document.getElementById('estimatedPriceRange').textContent;
+
+      const randomNum = Math.floor(200 + Math.random() * 799);
+      const orderCode = `P3D-${randomNum}`;
+      document.getElementById('generatedOrderCode').textContent = `#${orderCode}`;
+
+      // 1. Guardar pedido + foto en Firebase Firestore
+      const newOrderRecord = {
+        code: orderCode,
+        client: name,
+        contact: contact,
+        title: `${category} (${finalSize})`,
+        finish: finish,
+        quantity: quantity,
+        estimated: estRange,
+        description: description,
+        referenceImage: compressedBase64,
+        stage: 1,
+        note: 'Solicitud recibida. En revisión para enviar presupuesto en 2 a 6 horas hábiles.',
+        updatedAt: new Date().toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })
+      };
+      window.ordersMap[orderCode] = newOrderRecord;
+      localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify(window.ordersMap));
+      if (window.cloudAPI.saveOrder) {
+        window.cloudAPI.saveOrder(orderCode, newOrderRecord);
+      }
+
+      const waText =
+`Hola *Impresiones 3D Payán*, quiero cotizar mi diseño:
+
+🔖 *Código:* #${orderCode}
+👤 *Cliente:* ${name}
+📱 *Contacto:* ${contact}
+🧩 *Categoría:* ${category}
+📏 *Tamaño promedio:* ${finalSize}
+🎨 *Acabado:* ${finish}
+🔢 *Cantidad:* ${quantity}
+💰 *Estimado web:* ${estRange}
+📝 *Descripción:* ${description}
+
+📸 _(Ficha enviada al correo ${TARGET_EMAIL} — te adjunto la foto por aquí)_`;
+
+      const waUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(waText)}`;
+      document.getElementById('whatsappActionBtn').href = waUrl;
+
+      document.getElementById('summaryImg').src = compressedBase64;
+      document.getElementById('summaryDetails').innerHTML = `
+        <p><strong>Cliente:</strong> ${escapeHtml(name)} (${escapeHtml(contact)})</p>
+        <p><strong>Proyecto:</strong> ${escapeHtml(category)} • <strong>Cantidad:</strong> ${escapeHtml(quantity)}</p>
+        <p><strong>Tamaño:</strong> ${escapeHtml(finalSize)} • <strong>Acabado:</strong> ${escapeHtml(finish)}</p>
+        <p><strong>Inversión orientativa:</strong> <span class="text-cyan-300 font-semibold">${escapeHtml(estRange)}</span></p>
+        <p><strong>Detalle:</strong> ${escapeHtml(description)}</p>
+      `;
+
+      const resultPanel = document.getElementById('resultPanel');
+      resultPanel.classList.remove('hidden');
+      resultPanel.scrollIntoView({ behavior: 'smooth' });
+
+      const emailSubject = `Nueva Cotización 3D [${orderCode}] - ${name}`;
+      const emailBody = `Código: ${orderCode}\nCliente: ${name}\nContacto: ${contact}\nCategoría: ${category}\nTamaño: ${finalSize}\nAcabado: ${finish}\nCantidad: ${quantity}\nEstimado: ${estRange}\nDescripción: ${description}`;
+
+      // 2. Enviar ficha en formato tabla JSON a FormSubmit (100% confiable en todos los envíos)
+      if (window.location.protocol.startsWith('http')) {
+        try {
+          const response = await fetch(`https://formsubmit.co/ajax/${TARGET_EMAIL}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+              _subject: emailSubject,
+              _template: 'table',
+              _captcha: 'false',
+              email: contact.includes('@') ? contact : TARGET_EMAIL,
+              Codigo_Pedido: orderCode,
+              Cliente: name,
+              Contacto_Cliente: contact,
+              Categoria: category,
+              Tamano_Promedio: finalSize,
+              Acabado: finish,
+              Cantidad: quantity,
+              Inversion_Estimada: estRange,
+              Descripcion: description,
+              Foto_Respaldada: 'Guardada en Firebase disenos-3d con código ' + orderCode
+            })
+          });
+
+          if (response.ok) {
+            document.getElementById('emailAutoStatus').innerHTML =
+              `✅ <strong>¡Enviado a ${TARGET_EMAIL}!</strong> Abriendo WhatsApp automáticamente...`;
+          }
+        } catch (err) {}
+      }
+
+      // 3. Breve pausa de confirmación y salto automático a WhatsApp
+      submitBtnText.textContent = '2/2 Abriendo WhatsApp...';
+      await new Promise(resolve => setTimeout(resolve, 900));
+
+      submitBtn.disabled = false;
+      submitBtn.classList.remove('opacity-75');
+      submitBtnText.textContent = 'Enviar Detalles al Correo y Abrir WhatsApp';
+
+      // Abrir WhatsApp automáticamente
+      window.open(waUrl, '_blank', 'noopener,noreferrer');
+
+      document.getElementById('shareEmailBtn').onclick = async () => {
+        if (navigator.canShare && compressedBlob) {
+          const fileToShare = new File([compressedBlob], compressedFileName, { type: 'image/jpeg' });
+          if (navigator.canShare({ files: [fileToShare] })) {
+            try {
+              await navigator.share({ title: emailSubject, text: emailBody, files: [fileToShare] });
+              return;
+            } catch (err) {}
+          }
+        }
+        window.location.href = `mailto:${TARGET_EMAIL}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+      };
+
+      document.getElementById('downloadPhotoBtn').onclick = () => {
+        const a = document.createElement('a');
+        a.href = compressedBase64;
+        a.download = compressedFileName;
+        a.click();
+      };
+    });
+
+    // Rastreador de pedidos
+    window.openTrackerModal = function() {
+      document.getElementById('trackerModal').classList.remove('hidden');
+      document.getElementById('trackerNotFound').classList.add('hidden');
+      setTimeout(() => document.getElementById('trackerCodeInput').focus(), 100);
+    };
+
+    window.closeTrackerModal = function() {
+      document.getElementById('trackerModal').classList.add('hidden');
+    };
+
+    document.getElementById('trackerSearchForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      let rawCode = document.getElementById('trackerCodeInput').value.trim().toUpperCase().replace('#', '');
+      if (!rawCode.startsWith('P3D-') && /^\d+$/.test(rawCode)) {
+        rawCode = 'P3D-' + rawCode;
+      }
+
+      const order = window.ordersMap[rawCode];
+      const resBox = document.getElementById('trackerResultBox');
+      const notFound = document.getElementById('trackerNotFound');
+
+      if (!order) {
+        resBox.classList.add('hidden');
+        notFound.classList.remove('hidden');
+        return;
+      }
+
+      notFound.classList.add('hidden');
+      resBox.classList.remove('hidden');
+
+      document.getElementById('trkOrderCode').textContent = `#${order.code}`;
+      document.getElementById('trkUpdatedAt').textContent = order.updatedAt || 'En curso';
+      document.getElementById('trkProjectTitle').textContent = order.title;
+      document.getElementById('trkClientName').textContent = `Cliente: ${order.client}`;
+      document.getElementById('trkNoteBox').textContent = order.note || 'Tu proyecto avanza según lo programado en nuestro taller.';
+
+      const stages = [
+        { num: 1, label: '1. Diseño y Preparación 3D' },
+        { num: 2, label: '2. Imprimiendo en Taller' },
+        { num: 3, label: '3. Acabado, Pintura y Resina UV' },
+        { num: 4, label: '4. Listo para Entrega en Popayán o Envío' }
+      ];
+
+      const currentStage = parseInt(order.stage || 1, 10);
+      const stepsEl = document.getElementById('trkStepsList');
+      stepsEl.innerHTML = stages.map(st => {
+        const done = st.num <= currentStage;
+        const active = st.num === currentStage;
+        return `
+          <div class="flex items-center gap-3 p-3 rounded-xl border ${active ? 'bg-cyan-500/15 border-cyan-500/60 text-white' : done ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : 'bg-gray-900/50 border-gray-800 text-gray-500'}">
+            <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${done ? 'bg-cyan-500 text-slate-950' : 'bg-gray-800 text-gray-400'}">
+              ${done ? '✓' : st.num}
+            </span>
+            <span class="text-xs sm:text-sm font-semibold">${st.label}</span>
+          </div>
+        `;
+      }).join('');
+    });
+
+    // Funciones Administrador
+    window.openAdminLogin = function() {
+      if (isAdmin) {
+        openAdminDashboard('resenas');
+        return;
+      }
+      document.getElementById('adminLoginError').classList.add('hidden');
+      document.getElementById('adminPasswordInput').value = '';
+      document.getElementById('adminLoginModal').classList.remove('hidden');
+      setTimeout(() => document.getElementById('adminPasswordInput').focus(), 100);
+    };
+
+    window.closeAdminLogin = function() {
+      document.getElementById('adminLoginModal').classList.add('hidden');
+    };
+
+    document.getElementById('adminLoginForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (document.getElementById('adminPasswordInput').value === ADMIN_PASS) {
+        isAdmin = true;
+        closeAdminLogin();
+        document.getElementById('adminBar').classList.remove('hidden');
+        document.getElementById('btnAdminNav').classList.add('hidden');
+        window.renderReviews();
+        window.renderAdminOrdersList();
+        showToast('Bienvenido al Panel Administrador.', 'success');
+      } else {
+        document.getElementById('adminLoginError').classList.remove('hidden');
+      }
+    });
+
+    window.logoutAdmin = function() {
+      isAdmin = false;
+      document.getElementById('adminBar').classList.add('hidden');
+      document.getElementById('btnAdminNav').classList.remove('hidden');
+      closeAdminDashboard();
+      window.renderReviews();
+      showToast('Sesión cerrada.', 'info');
+    };
+
+    window.openAdminDashboard = function(tab = 'resenas') {
+      document.getElementById('adminDashboardModal').classList.remove('hidden');
+      switchAdminTab(tab);
+    };
+
+    window.closeAdminDashboard = function() {
+      document.getElementById('adminDashboardModal').classList.add('hidden');
+    };
+
+    window.switchAdminTab = function(tab) {
+      const btnRes = document.getElementById('tabBtnResenas');
+      const btnPed = document.getElementById('tabBtnPedidos');
+      const paneRes = document.getElementById('adminTabResenas');
+      const panePed = document.getElementById('adminTabPedidos');
+
+      if (tab === 'resenas') {
+        btnRes.className = 'px-4 py-2 rounded-xl bg-orange-500 text-slate-950 font-bold text-xs transition';
+        btnPed.className = 'px-4 py-2 rounded-xl bg-gray-800 text-gray-300 font-semibold text-xs transition';
+        paneRes.classList.remove('hidden');
+        panePed.classList.add('hidden');
+      } else {
+        btnPed.className = 'px-4 py-2 rounded-xl bg-cyan-500 text-slate-950 font-bold text-xs transition';
+        btnRes.className = 'px-4 py-2 rounded-xl bg-gray-800 text-gray-300 font-semibold text-xs transition';
+        panePed.classList.remove('hidden');
+        paneRes.classList.add('hidden');
+        window.renderAdminOrdersList();
+      }
+    };
+
+    window.resetReviewForm = function() {
+      document.getElementById('reviewModalTitle').textContent = 'Publicar Nueva Reseña Antes / Después';
+      document.getElementById('editReviewId').value = '';
+      document.getElementById('editProjectTitle').value = '';
+      document.getElementById('editClientName').value = '';
+      document.getElementById('editSize').value = 'Mediano (13 a 18 cm)';
+      document.getElementById('editRating').value = '5';
+      document.getElementById('editFinish').value = 'Pintado a mano / Aerógrafo + Resina UV';
+      document.getElementById('editComment').value = '';
+      modalBeforeBase64 = sampleBeforeSvg;
+      modalAfterBase64 = sampleAfterSvg;
+      document.getElementById('editBeforePhotoPreview').src = modalBeforeBase64;
+      document.getElementById('editAfterPhotoPreview').src = modalAfterBase64;
+    };
+
+    window.editReviewItem = function(id) {
+      const item = window.reviewsList.find(r => r.id === id);
+      if (!item) return;
+      openAdminDashboard('resenas');
+      document.getElementById('reviewModalTitle').textContent = 'Editar Reseña y Fotos';
+      document.getElementById('editReviewId').value = item.id;
+      document.getElementById('editProjectTitle').value = item.title;
+      document.getElementById('editClientName').value = item.client;
+      document.getElementById('editCategory').value = item.category;
+      document.getElementById('editSize').value = item.size;
+      document.getElementById('editRating').value = item.rating || 5;
+      document.getElementById('editFinish').value = item.finish;
+      document.getElementById('editComment').value = item.comment;
+      modalBeforeBase64 = item.beforeImage || sampleBeforeSvg;
+      modalAfterBase64 = item.afterImage || sampleAfterSvg;
+      document.getElementById('editBeforePhotoPreview').src = modalBeforeBase64;
+      document.getElementById('editAfterPhotoPreview').src = modalAfterBase64;
+    };
+
+    document.getElementById('editBeforePhotoInput').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const res = await compressImageFile(file, 700, 0.72);
+      modalBeforeBase64 = res.dataUrl;
+      document.getElementById('editBeforePhotoPreview').src = modalBeforeBase64;
+    });
+
+    document.getElementById('editAfterPhotoInput').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const res = await compressImageFile(file, 700, 0.75);
+      modalAfterBase64 = res.dataUrl;
+      document.getElementById('editAfterPhotoPreview').src = modalAfterBase64;
+    });
+
+    document.getElementById('reviewEditorForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('editReviewId').value || ('rev-' + Date.now());
+      const payload = {
+        id,
+        title: document.getElementById('editProjectTitle').value.trim(),
+        client: document.getElementById('editClientName').value.trim(),
+        category: document.getElementById('editCategory').value,
+        size: document.getElementById('editSize').value.trim(),
+        rating: parseInt(document.getElementById('editRating').value, 10),
+        finish: document.getElementById('editFinish').value.trim(),
+        comment: document.getElementById('editComment').value.trim(),
+        beforeImage: modalBeforeBase64 || sampleBeforeSvg,
+        afterImage: modalAfterBase64 || sampleAfterSvg
+      };
+
+      const idx = window.reviewsList.findIndex(r => r.id === id);
+      if (idx !== -1) window.reviewsList[idx] = payload;
+      else window.reviewsList.unshift(payload);
+
+      localStorage.setItem(LOCAL_REVIEWS_KEY, JSON.stringify(window.reviewsList));
+      window.renderReviews();
+
+      if (window.cloudAPI.saveReview) {
+        await window.cloudAPI.saveReview(id, payload);
+      } else {
+        showToast('Reseña guardada.', 'success');
+      }
+      closeAdminDashboard();
+    });
+
+    window.deleteReviewItem = async function(id) {
+      const ok = await showCustomConfirm('¿Eliminar esta reseña de la galería pública?');
+      if (!ok) return;
+      window.reviewsList = window.reviewsList.filter(r => r.id !== id);
+      localStorage.setItem(LOCAL_REVIEWS_KEY, JSON.stringify(window.reviewsList));
+      window.renderReviews();
+
+      if (window.cloudAPI.deleteReview) {
+        await window.cloudAPI.deleteReview(id);
+      } else {
+        showToast('Reseña eliminada.', 'info');
+      }
+    };
+
+    document.getElementById('orderEditorForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      let code = document.getElementById('ordCodeInput').value.trim().toUpperCase().replace('#', '');
+      if (!code.startsWith('P3D-')) code = 'P3D-' + code;
+
+      const existing = window.ordersMap[code] || {};
+      const orderObj = {
+        ...existing,
+        code,
+        client: document.getElementById('ordClientInput').value.trim(),
+        title: document.getElementById('ordTitleInput').value.trim(),
+        stage: parseInt(document.getElementById('ordStageInput').value, 10),
+        note: document.getElementById('ordNoteInput').value.trim() || 'En proceso en taller.',
+        updatedAt: new Date().toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })
+      };
+
+      window.ordersMap[code] = orderObj;
+      localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify(window.ordersMap));
+      window.renderAdminOrdersList();
+
+      if (window.cloudAPI.saveOrder) {
+        await window.cloudAPI.saveOrder(code, orderObj);
+      } else {
+        showToast(`Pedido #${code} guardado.`, 'success');
+      }
+      document.getElementById('orderEditorForm').reset();
+    });
+
+    window.renderAdminOrdersList = function() {
+      const listEl = document.getElementById('adminOrdersList');
+      if (!listEl) return;
+      const keys = Object.keys(window.ordersMap);
+      if (keys.length === 0) {
+        listEl.innerHTML = '<p class="text-xs text-gray-400">No hay pedidos registrados aún.</p>';
+        return;
+      }
+      listEl.innerHTML = keys.map(k => {
+        const o = window.ordersMap[k];
+        return `
+          <div class="flex items-center justify-between gap-2 p-3 rounded-xl bg-gray-900 border border-gray-800 text-xs">
+            <div class="flex items-center gap-2.5 min-w-0">
+              ${o.referenceImage ? `<img src="${o.referenceImage}" alt="Ref" class="w-10 h-10 rounded-lg object-cover shrink-0 border border-gray-700" />` : ''}
+              <div class="min-w-0">
+                <span class="font-mono font-bold text-cyan-400">#${escapeHtml(o.code)}</span>
+                <span class="text-white font-semibold ml-1.5">${escapeHtml(o.client)}</span>
+                <p class="text-gray-400 mt-0.5 truncate">${escapeHtml(o.title)} • <strong>Etapa ${o.stage}/4</strong></p>
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <button type="button" onclick="loadOrderToForm('${escapeHtml(o.code)}')" class="px-2.5 py-1 rounded-lg bg-cyan-500/20 text-cyan-300 font-semibold">
+                Editar
+              </button>
+              <button type="button" onclick="deleteOrderItem('${escapeHtml(o.code)}')" class="px-2.5 py-1 rounded-lg bg-red-500/20 text-red-300 font-semibold">
+                X
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    };
+
+    window.loadOrderToForm = function(code) {
+      const o = window.ordersMap[code];
+      if (!o) return;
+      document.getElementById('ordCodeInput').value = o.code;
+      document.getElementById('ordClientInput').value = o.client;
+      document.getElementById('ordTitleInput').value = o.title;
+      document.getElementById('ordStageInput').value = o.stage;
+      document.getElementById('ordNoteInput').value = o.note || '';
+    };
+
+    window.deleteOrderItem = async function(code) {
+      const ok = await showCustomConfirm(`¿Eliminar el seguimiento del pedido #${code}?`);
+      if (!ok) return;
+      delete window.ordersMap[code];
+      localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify(window.ordersMap));
+      window.renderAdminOrdersList();
+
+      if (window.cloudAPI.deleteOrder) {
+        await window.cloudAPI.deleteOrder(code);
+      } else {
+        showToast(`Pedido #${code} eliminado.`, 'info');
+      }
+    };
+
+    window.exportBackupJson = function() {
+      const backup = {
+        fecha: new Date().toISOString(),
+        resenas: window.reviewsList,
+        pedidos: window.ordersMap
+      };
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'respaldo-impresiones3d-payan.json';
+      a.click();
+      showToast('Respaldo JSON descargado.', 'success');
+    };
+
+    loadInitialCache();
+    renderSwatches();
+    updateEstimatedPrice();
+    resetReviewForm();
+    window.renderReviews();
+    window.renderAdminOrdersList();
+  </script>
+
+  <!-- BLOQUE 2: Sincronización en la Nube con tu Proyecto Firebase "disenos-3d" -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAZD1S6frqr40XtQLKGXAmu3NZL7brA-_A",
+      authDomain: "disenos-3d.firebaseapp.com",
+      projectId: "disenos-3d",
+      storageBucket: "disenos-3d.firebasestorage.app",
+      messagingSenderId: "1035972608475",
+      appId: "1:1035972608475:web:004602d09a5eea6797e7fe"
+    };
+
+    try {
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+
+      const reviewsCol = collection(db, 'impresiones3d_resenas');
+      const ordersCol = collection(db, 'impresiones3d_pedidos');
+
+      window.cloudAPI.connected = true;
+      const badge = document.getElementById('cloudStatusBadge');
+      if (badge) badge.textContent = '☁️ Conectado a disenos-3d';
+
+      window.cloudAPI.saveReview = async (id, data) => {
+        try {
+          await setDoc(doc(reviewsCol, id), data);
+          showToast('Publicado en la nube en tiempo real.', 'success');
+        } catch (err) {
+          console.error(err);
+          showToast('Guardado localmente (verifica reglas de Firestore).', 'info');
+        }
+      };
+
+      window.cloudAPI.deleteReview = async (id) => {
+        try {
+          await deleteDoc(doc(reviewsCol, id));
+          showToast('Eliminado de la nube.', 'info');
+        } catch (err) {
+          console.error(err);
+        }
+      };
+
+      window.cloudAPI.saveOrder = async (code, data) => {
+        try {
+          await setDoc(doc(ordersCol, code), data);
+          showToast(`Pedido #${code} sincronizado en la nube.`, 'success');
+        } catch (err) {
+          console.error(err);
+        }
+      };
+
+      window.cloudAPI.deleteOrder = async (code) => {
+        try {
+          await deleteDoc(doc(ordersCol, code));
+          showToast(`Pedido #${code} eliminado de la nube.`, 'info');
+        } catch (err) {
+          console.error(err);
+        }
+      };
+
+      onSnapshot(reviewsCol, async (snapshot) => {
+        if (snapshot.empty) {
+          for (const item of window.defaultReviews) {
+            await setDoc(doc(reviewsCol, item.id), item).catch(() => {});
+          }
+        } else {
+          const loaded = [];
+          snapshot.forEach(d => loaded.push({ id: d.id, ...d.data() }));
+          window.reviewsList = loaded;
+          localStorage.setItem('payan_3d_reviews_v4', JSON.stringify(loaded));
+          window.renderReviews();
+        }
+      }, (err) => {
+        console.warn('Firestore reseñas en modo local:', err.message);
+        if (badge) badge.textContent = '💾 Modo Local';
+      });
+
+      onSnapshot(ordersCol, async (snapshot) => {
+        if (snapshot.empty) {
+          for (const key of Object.keys(window.defaultOrders)) {
+            await setDoc(doc(ordersCol, key), window.defaultOrders[key]).catch(() => {});
+          }
+        } else {
+          const loadedOrders = {};
+          snapshot.forEach(d => {
+            loadedOrders[d.id.toUpperCase()] = d.data();
+          });
+          window.ordersMap = loadedOrders;
+          localStorage.setItem('payan_3d_orders_v4', JSON.stringify(loadedOrders));
+          window.renderAdminOrdersList();
+        }
+      }, (err) => {
+        console.warn('Firestore pedidos en modo local:', err.message);
+      });
+
+    } catch (e) {
+      console.warn('Iniciando sin nube:', e);
+    }
+  </script>
+</body>
+</html>
